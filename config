@@ -1,0 +1,209 @@
+#Configure the Apache config file to create a secure web server
+#Disable Server Signature and Banner
+#sudo vim /etc/apache2/conf-available/security.conf
+#add/modify below parameters.
+
+ServerSignature Off
+ServerTokens Prod
+
+
+------------------------------------------------------------------------------------
+#Restrict Directory Access
+#Make sure your Apache doesn’t allow full directory listing or access
+#In your Virtual-Host or main config:
+
+<Directory />
+    AllowOverride None
+    Require all denied
+</Directory>
+----------------------------------------------------------------------------------------
+# Protect Against DoS, DDoS & Brute Force
+#Install the Module
+sudo apt install libapache2-mod-evasive -y
+#Create Configuration Directory
+sudo mkdir -p /var/log/mod_evasive
+sudo chown -R www-data:www-data /var/log/mod_evasive
+#Configure mod_evasive
+sudo vim /etc/apache2/mods-available/evasive.conf
+#Paste or adjust the following config:
+<IfModule mod_evasive20.c>
+    DOSHashTableSize    3097
+    DOSPageCount        5
+    DOSSiteCount        20
+    DOSPageInterval     1
+    DOSSiteInterval     1
+    DOSBlockingPeriod   10
+
+   #DOSEmailNotify      your@email.com
+    DOSSystemCommand    "sudo -u root iptables -A INPUT -s %s -j DROP"
+    DOSLogDir           "/var/log/mod_evasive"
+</IfModule>
+
+#Restart Apache
+apachectl -t
+sudo systemctl restart apache2
+
+#test mod_evasive
+for i in {1..50}; do curl -s -o /dev/null http://localhost/; done
+#If you’re using a custom domain like demo.com in /etc/hosts, test it like this instead:
+for i in {1..50}; do curl -s -o /dev/null http://demo.com/; done
+#Check if the Log is Now Created
+sudo ls /var/log/mod_evasive/
+#You should see something like
+dos-192.168.1.10
+
+------------------------------------------------------------------------------------------
+#Limit Request Size
+#Edit Your Apache Virtual Host or .htaccess
+#In your Virtual Host config (/etc/apache2/sites-available/your-site.conf
+  <VirtualHost *:80>
+    ServerName demo.com
+    DocumentRoot /var/www/demo-page
+    <Directory /var/www/demo-page>
+        LimitRequestBody 1048576
+    </Directory>
+</VirtualHost>
+
+
+#    LimitRequestBody 1048576 → limits request size to 1 MB
+#   You can set any value between 0 (unlimited) and 2147483647 (2GB max)
+  
+#Restart Apache 
+apachectl -t
+sudo systemctl restart apache2
+
+------------------------------------------------------------------------
+  #X-Frame-Options HTTP header is used to protect your website against clickjacking attacks
+  #Edit your site’s virtual host file
+
+<VirtualHost *:80>
+    ServerName demo.com
+    DocumentRoot /var/www/demo-page
+
+    <IfModule mod_headers.c>
+        Header always set X-Frame-Options "SAMEORIGIN"
+    </IfModule>
+</VirtualHost>
+
+
+#Enable mod_headers (if not enabled yet)
+  sudo a2enmod headers
+sudo systemctl restart apache2
+--------------------------------------------------------------------------
+  # X-Content-Type-Options header is a security feature that prevents MIME type sniffing by browsers.
+  #Edit your site config
+  <VirtualHost *:80>
+    ServerName demo.com
+    DocumentRoot /var/www/demo-page
+
+    <IfModule mod_headers.c>
+        Header always set X-Content-Type-Options "nosniff"
+    </IfModule>
+</VirtualHost>
+
+
+  #Enable mod_headers (if not enabled yet)
+  sudo a2enmod headers
+sudo systemctl restart apache2
+------------------------------------------------------------------
+  # X-XSS-Protectio
+  # X-XSS-Protection HTTP header is a basic security header that was originally designed to enable or disable the cross-site scripting (XSS)
+  filter in older versions of browsers like Internet Explorer and early versions of Chrome.
+#  1; mode=block enables protection and blocks the page instead of sanitizing it.
+  #Edit Apache Configuration
+  #You can set this header globally or per virtual host.
+  
+<VirtualHost *:80>
+    ServerName demo.com
+    DocumentRoot /var/www/demo-page
+
+    <IfModule mod_headers.c>
+        Header set X-XSS-Protection "1; mode=block"
+    </IfModule>
+</VirtualHost>
+
+#Enable mod_headers (if not already enabled)
+sudo a2enmod headers
+sudo systemctl restart apache2
+--------------------------------------------------------------
+#Key Cookie Attributes for Security
+#This attribute tells the browser to only send the cookie to the server over an encrypted (HTTPS) connection. 
+  This prevents cookies from being transmitted in plain text over HTTP, protecting them from interception
+
+#HttpOnly: This attribute prevents client-side scripts (like JavaScript) from accessing the cookie.
+This significantly mitigates the risk of session hijacking via XSS attacks,
+as an attacker's script cannot read the cookie's contents.
+
+  #SameSite: This attribute helps defend against Cross-Site Request Forgery (CSRF) attacks by controlling when cookies are sent with cross-site requests.
+  The recommended values are:
+
+    Strict: The cookie is sent only with requests originating from the same site.
+    Lax: The cookie is not sent on cross-site subrequests (like images or frames) but is sent 
+     when navigating to the origin site from an external site (e.g., by clicking a link).
+      This is the modern default behavior for many browsers if not specified.
+    None: The cookie is sent with all requests, including cross-site, but must also be set with the Secure flag
+
+
+#mod_headers is enabled in your Apache configuration
+sudo a2enmod headers
+  
+   <IfModule mod_headers.c>
+        # Set the Secure and HttpOnly flags on all cookies
+        Header edit Set-Cookie "(.*)" "$1; Secure; HttpOnly"
+
+        # Set the SameSite flag (e.g., to Strict or Lax, Lax is a common balance)
+        Header edit Set-Cookie "(.*)" "$1; SameSite=Lax"
+        
+        # To use SameSite=None, you must ensure Secure is also set:
+        # Header edit Set-Cookie "(.*)" "$1; Secure; HttpOnly; SameSite=None"
+
+        # Optional: Add the HSTS header to force browsers to use HTTPS
+        Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    </IfModule>
+
+  
+-----------------------------------------------------------------------
+
+
+  #Restrict File Access
+  #Block access to sensitive file types like .htaccess, .env, .ini, logs, and backups:
+
+  <FilesMatch "\.(htaccess|htpasswd|env|ini|log|bak|sh)$">
+  Require all denied
+</FilesMatch>
+
+-------------------------------------------------------------------
+#Limit HTTP Methods
+#Only allow methods your app uses:
+
+<Directory /var/www/your-site>
+  <LimitExcept GET POST HEAD>
+    Require all denied
+  </LimitExcept>
+</Directory>
+
+-------------------------------------------------------------------------
+# Secure .htaccess and Config Files
+#  3Ensure .htaccess is only used when necessary, and only with AllowOverride enabled in the intended directory:
+
+<Directory /var/www/your-site>
+  AllowOverride None
+</Directory>
+
+#Enable only in specific directories where .htaccess is needed:
+
+<Directory /var/www/your-site/public>
+  AllowOverride All
+</Directory>
+
+ -------------------------------------------------------------------------------
+#Protect Upload Directories
+#Prevent execution of PHP files in directories used for file uploads:
+<Directory /var/www/your-site/uploads>
+  <FilesMatch "\.php$">
+    Require all denied
+  </FilesMatch>
+</Directory>
+
+---------------------------------------------------------------------------------
+  
