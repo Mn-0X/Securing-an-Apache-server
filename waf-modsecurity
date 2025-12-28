@@ -1,0 +1,23 @@
+sudo apt install libapache2-mod-security2
+sudo a2enmod security2
+sudo systemctl restart apache2
+sudo cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+
+#Edit /etc/modsecurity/modsecurity.conf:
+
+SecRuleEngine On
+SecRequestBodyAccess On
+SecResponseBodyAccess Off
+SecDataDir /var/cache/modsecurity
+
+#Recommended Core Rule Set (CRS)
+#Use OWASP ModSecurity CRS, which protects against common attacks:
+
+sudo apt install modsecurity-crs
+sudo ln -s /usr/share/modsecurity-crs/base_rules/* /usr/share/modsecurity-crs/activated_rules/
+
+
+#Include CRS in your Apache config
+<IfModule security2_module>
+    IncludeOptional /usr/share/modsecurity-crs/activated_rules/*.conf
+</IfModule>
