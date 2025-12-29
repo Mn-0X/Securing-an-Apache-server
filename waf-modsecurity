@@ -84,4 +84,5 @@ Syntax OK
 -------------------------------
 #for disabele mode 
  sudo a2dismod security2
+systemctl restart apache2
 
