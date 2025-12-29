@@ -37,21 +37,16 @@ sudo nano /etc/apache2/mods-enabled/security2.conf
     Include /usr/share/owasp-crs/rules/*.conf
 </IfModule>
 
-
+-----------------------------------------------
 sudo systemctl restart apache2
 sudo systemctl status apache2
 
-
+---------------------------------------
+#test 
 curl "http://localhost/?x=<script>alert(1)</script>"
 
 Logs:
-
-
 sudo tail -f /var/log/apache2/error.log
-
-#Start Apache
-sudo systemctl restart apache2
-sudo systemctl status apache2
 
 -----------------------------------
 #Enable blocking mode:
@@ -60,9 +55,11 @@ SecRuleEngine On
 
 sudo systemctl restart apache2
 
-----------------------------------------
-#Remove ModSecurity from Apache:
-sudo apt-get remove --purge libapache2-mod-security2
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+##########################Remove ModSecurity from Apache:
+                sudo apt-get remove --purge libapache2-mod-security2
 
 
 #Clean up any remaining ModSecurity files:
