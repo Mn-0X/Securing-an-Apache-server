@@ -60,5 +60,25 @@ SecRuleEngine On
 
 sudo systemctl restart apache2
 
+----------------------------------------
+#Remove ModSecurity from Apache:
+sudo apt-get remove --purge libapache2-mod-security2
 
 
+#Clean up any remaining ModSecurity files:
+sudo rm -rf /etc/modsecurity
+sudo rm -rf /var/log/modsec
+-----------------------------------------------------------------------
+#Remove CRS (Core Rule Set)
+sudo apt-get remove --purge modsecurity-crs
+
+#Delete CRS files
+rm  -rf /usr/share/owasp-crs
+
+#restart apache
+sudo systemctl restart apache2
+
+---------------------------------------
+apachectl configtest
+#you see
+Syntax OK
