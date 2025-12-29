@@ -17,6 +17,14 @@ ServerTokens Prod
     Require all denied
 </Directory>
 ----------------------------------------------------------------------------------------
+#for allow .htaccsess to use on folder 
+<Directory /var/www/html>
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+-------------------------------------------------------
 # Protect Against DoS, DDoS & Brute Force
 #Install the Module
 sudo apt install libapache2-mod-evasive -y
