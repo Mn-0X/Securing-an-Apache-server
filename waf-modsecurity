@@ -1,23 +1,64 @@
-sudo apt install libapache2-mod-security2
+#install ModSecurity (Apache module)
+
+sudo apt update
+sudo apt install -y libapache2-mod-security2
+
+#Enable module:  
 sudo a2enmod security2
-sudo systemctl restart apache2
-sudo cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+----------------------------------------------
+#Enable ModSecurity config
 
-#Edit /etc/modsecurity/modsecurity.conf:
+sudo mkdir -p /etc/modsecurity
+sudo cp /etc/modsecurity/modsecurity.conf-recommended \
+        /etc/modsecurity/modsecurity.conf
+        
+#Edit: to Detection mode
+sudo nano /etc/modsecurity/modsecurity.conf
+SecRuleEngine DetectionOnly
+#Save.
 
-SecRuleEngine On
-SecRequestBodyAccess On
-SecResponseBodyAccess Off
-SecDataDir /var/cache/modsecurity
+-------------------------------------
+#Install OWASP CRS (GitHub – recommended)
+cd /usr/share
+sudo git clone --branch v4.21.0 https://github.com/coreruleset/coreruleset.git owasp-crs
+---------------------------------------------------------------
+#Create CRS config:
+cd /usr/share/owasp-crs
+sudo cp crs-setup.conf.example crs-setup.conf
 
-#Recommended Core Rule Set (CRS)
-#Use OWASP ModSecurity CRS, which protects against common attacks:
+#Load ModSecurity + CRS into Apache
+sudo nano /etc/apache2/mods-enabled/security2.conf
+#Replace contents with exactly:
+ <IfModule security2_module>
+    SecDataDir /var/cache/modsecurity
 
-sudo apt install modsecurity-crs
-sudo ln -s /usr/share/modsecurity-crs/base_rules/* /usr/share/modsecurity-crs/activated_rules/
-
-
-#Include CRS in your Apache config
-<IfModule security2_module>
-    IncludeOptional /usr/share/modsecurity-crs/activated_rules/*.conf
+    Include /etc/modsecurity/modsecurity.conf
+    Include /usr/share/owasp-crs/crs-setup.conf
+    Include /usr/share/owasp-crs/rules/*.conf
 </IfModule>
+
+
+sudo systemctl restart apache2
+sudo systemctl status apache2
+
+
+curl "http://localhost/?x=<script>alert(1)</script>"
+
+Logs:
+
+
+sudo tail -f /var/log/apache2/error.log
+
+#Start Apache
+sudo systemctl restart apache2
+sudo systemctl status apache2
+
+-----------------------------------
+#Enable blocking mode:
+sudo nano /etc/modsecurity/modsecurity.conf
+SecRuleEngine On
+
+sudo systemctl restart apache2
+
+
+
